@@ -6,7 +6,15 @@ Author: Shepilo Vika
 */
 
 function myplugin_activation(){
-	create_table();
+	global $wpdb;
+    $table_name = $wpdb->prefix . "cens";
+    $sql = "CREATE TABLE " . $table_name . " (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        cense text NOT NULL COLLATE utf8_general_ci,
+        UNIQUE KEY id (id)
+    );";
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    dbDelta( $sql );
 }
 register_activation_hook( __FILE__, 'myplugin_activation' );
 
@@ -19,39 +27,7 @@ function myplugin_deactivation(){
 }
 register_deactivation_hook( __FILE__, 'myplugin_deactivation' );
 
-function create_table(){
-    global $wpdb;
-    $table_name = $wpdb->prefix . "cens";
-    $sql = "CREATE TABLE " . $table_name . " (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        cense text NOT NULL COLLATE utf8_general_ci,
-        UNIQUE KEY id (id)
-    );";
-    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-    dbDelta( $sql );
-} 
-add_action( 'init', 'create_table' );
-
-function menu_panel_add_word() 
-{
-    add_menu_page('Add word', 'Add word', 'manage_options', 'add_word.php', 'add_word','dashicons-phone', 1);
-    function add_word() {
-    echo "<h2>Add word</h2>
-    <hr>
-        <p>
-            <form method='POST' action=''>
-                New word: 
-                <input type='text' name='new-word'><br>
-                <input type='submit'>
-                </p>
-            </form>
-        </p>
-    <hr>";
-    }
-}
-add_action('admin_menu', 'menu_panel_add_word');
-
-function censure_filter_comments($comment_text)
+function array_obscene_words()
 {
     global $wpdb;
     $results = $wpdb->get_results( "SELECT cense FROM {$wpdb->prefix}cens", OBJECT );
@@ -61,6 +37,45 @@ function censure_filter_comments($comment_text)
             array_push($obscene_words, $value);
         }
     }
+    return $obscene_words;
+}
+
+function menu_panel_add_word() 
+{
+    add_menu_page('Add word', 'Add word', 'manage_options', 'add_word.php', 'add_word', 'dashicons-phone', 1);
+    function add_word() 
+    {
+        echo "<h2>Add word</h2>
+        <hr>
+            <p>
+                <form method='POST' action=''>
+                    New word: 
+                    <input type='text' name='new-word'><br>
+                    <input type='submit'>
+                    </p>
+                </form>
+            </p>
+        <hr>";
+        $obscene_words = array_obscene_words();
+        foreach($obscene_words as $key => $value){
+            echo "
+            <hr>
+                <p>
+                    <form method='POST' action='#'>
+                        <input type='text' name='word' value='$value'><br>
+                        <input type='submit' name='delete' value='Delete'>
+                        </p>
+                    </form>
+                </p>
+            <hr>";
+        }
+    }
+}
+add_action('admin_menu', 'menu_panel_add_word');
+
+function censure_filter_comments($comment_text)
+{
+    $obscene_words = array_obscene_words();
     $the_censure_content = str_ireplace(array_values($obscene_words), "***", $comment_text);
     return  $the_censure_content;
 }
@@ -78,3 +93,15 @@ function censure_filter_data()
     }
 } 
 add_filter('admin_init', 'censure_filter_data'); 
+
+function delete_word()
+{
+    global $wpdb;
+    if (isset($_POST['word'])) {
+        $data = $_POST['word'];
+        $wpdb->delete("{$wpdb->prefix}cens",  array(
+        'cense' => $data,
+        ));
+    }
+}
+add_filter('admin_init', 'delete_word'); 
