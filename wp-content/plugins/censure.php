@@ -45,26 +45,22 @@ function menu_panel_add_word()
     add_menu_page('Add word', 'Add word', 'manage_options', 'add_word.php', 'add_word', 'dashicons-phone', 1);
     function add_word() 
     {
-        echo "<h2>Add word</h2>
-        <hr>
-            <p>
-                <form method='POST' action=''>
-                    New word: 
-                    <input type='text' name='new-word'><br>
-                    <input type='submit'>
-                    </p>
-                </form>
-            </p>
-        <hr>";
+        echo "
+        <form action='admin-post.php' method='post'>
+            <input type='hidden' name='action' value='create_word'>
+            <input type='text' name='data' value=''>
+            <input type='submit' value='Submit'>
+        </form>
+        ";
         $obscene_words = array_obscene_words();
         foreach($obscene_words as $key => $value){
             echo "
             <hr>
                 <p>
-                    <form method='POST' action='#'>
-                        <input type='text' name='word' value='$value'><br>
-                        <input type='submit' name='delete' value='Delete'>
-                        </p>
+                    <form method='POST' action='admin-post.php'>
+                        <input type='hidden' name='action' value='delete_word'>
+                        <input type='text' name='data_word' value='$value'>
+                        <input type='submit' value='Delete'>
                     </form>
                 </p>
             <hr>";
@@ -81,27 +77,30 @@ function censure_filter_comments($comment_text)
 }
 add_filter('comment_text', 'censure_filter_comments');
 
-function censure_filter_data() 
-{
+
+function prefix_admin_create_word() {
+    status_header(200);
     global $wpdb;
-    if (isset($_POST['new-word'])) {
-        $data = $_POST['new-word'];
+    if (isset($_POST['data'])) {
+        $data = $_POST['data'];
         $wpdb->insert("{$wpdb->prefix}cens",  array(
         'id' => 'AUTO_INCREMENT',
         'cense' => $data,
         ));
     }
-} 
-add_filter('admin_init', 'censure_filter_data'); 
-
-function delete_word()
-{
-    global $wpdb;
-    if (isset($_POST['word'])) {
-        $data = $_POST['word'];
-        $wpdb->delete("{$wpdb->prefix}cens",  array(
-        'cense' => $data,
-        ));
-    }
+    wp_redirect(admin_url('admin.php?page=add_word.php'));
 }
-add_filter('admin_init', 'delete_word'); 
+add_action( 'admin_post_create_word', 'prefix_admin_create_word' );
+
+function prefix_admin_delete_word() {
+    status_header(200);
+    global $wpdb;
+    if (isset($_POST['data_word'])) {
+        $data = $_POST['data_word'];
+        $wpdb->delete("{$wpdb->prefix}cens",  array(
+            'cense' => $data,
+            ));
+    }
+    wp_redirect(admin_url('admin.php?page=add_word.php'));
+}
+add_action( 'admin_post_delete_word', 'prefix_admin_delete_word' );
